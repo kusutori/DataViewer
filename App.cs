@@ -3,18 +3,22 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using DataViewer.Controls;
 using DataViewer.Services;
 using DataViewer.State;
 using Microsoft.UI.Reactor;
 using Microsoft.UI.Reactor.Core;
+using Microsoft.UI.Reactor.Hosting;
 using Microsoft.UI.Reactor.Layout;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
+using WinUI.TableView;
 using static Microsoft.UI.Reactor.Factories;
 
-ReactorApp.Run<App>("DataViewer", width: 1180, height: 760);
+ReactorApp.RegisterControlAssembly(typeof(TableView).Assembly);
+ReactorApp.Run<App>("DataViewer", 1180, 760, false, host => XamlInterop.Register(host.Reconciler));
 
 class App : Component
 {
@@ -189,82 +193,11 @@ class App : Component
                     ).Flex(grow: 1, basis: 0),
                     state.IsBusy ? ProgressRing().IsActive() : null
                 ),
-                RenderResultTable(state.Result)
+                ResultTableView.Render(state.Result)
+                    .Flex(grow: 1, basis: 0)
             ) with { RowGap = 12 }
         )
         .Flex(grow: 1, basis: 0);
-
-    private static Element RenderResultTable(QueryResult? result)
-    {
-        if (result is null)
-        {
-            return Border(
-                VStack(8,
-                    TextBlock("暂无结果").SemiBold(),
-                    Caption("打开数据文件后会自动执行默认查询。").Foreground(Theme.SecondaryText)
-                )
-            )
-            .Padding(24)
-            .Background(Theme.SubtleFill)
-            .CornerRadius(8)
-            .Flex(grow: 1, basis: 0);
-        }
-
-        if (result.Columns.Count == 0)
-        {
-            return Border(TextBlock("查询已执行，但没有返回表格列。"))
-                .Padding(24)
-                .Background(Theme.SubtleFill)
-                .CornerRadius(8)
-                .Flex(grow: 1, basis: 0);
-        }
-
-        var visibleColumnCount = Math.Min(result.Columns.Count, 24);
-        var visibleRows = result.Rows.Take(200).ToArray();
-        var columns = Enumerable.Repeat(GridSize.Px(180), visibleColumnCount).ToArray();
-        var rows = Enumerable.Repeat(GridSize.Auto, visibleRows.Length + 1).ToArray();
-        var cells = new List<Element>();
-
-        for (var column = 0; column < visibleColumnCount; column++)
-        {
-            cells.Add(RenderCell(result.Columns[column], isHeader: true).Grid(row: 0, column: column));
-        }
-
-        for (var row = 0; row < visibleRows.Length; row++)
-        {
-            for (var column = 0; column < visibleColumnCount; column++)
-            {
-                var value = column < visibleRows[row].Count ? visibleRows[row][column] : null;
-                cells.Add(RenderCell(value ?? "NULL", isHeader: false, isNull: value is null).Grid(row: row + 1, column: column));
-            }
-        }
-
-        return ScrollView(
-            Grid(columns, rows, cells.ToArray()) with { RowSpacing = 1, ColumnSpacing = 1 }
-        )
-        .HorizontalScrollMode(ScrollingScrollMode.Enabled)
-        .VerticalScrollMode(ScrollingScrollMode.Enabled)
-        .Flex(grow: 1, basis: 0);
-    }
-
-    private static Element RenderCell(string text, bool isHeader, bool isNull = false)
-    {
-        var content = TextBlock(text)
-            .TextTrimming(TextTrimming.CharacterEllipsis)
-            .ToolTip(text)
-            .Foreground(isNull ? Theme.TertiaryText : Theme.PrimaryText);
-
-        if (isHeader)
-        {
-            content = content.SemiBold();
-        }
-
-        return Border(content)
-            .Padding(horizontal: 8, vertical: 6)
-            .MinHeight(36)
-            .Background(isHeader ? Theme.LayerFill : Theme.CardBackground)
-            .WithBorder(Theme.DividerStroke, 1);
-    }
 
     private static async Task OpenFileAsync(Action<AppAction> dispatch, ReactorWindow? window)
     {

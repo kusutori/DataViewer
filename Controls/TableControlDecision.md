@@ -4,7 +4,7 @@ DataViewer should not migrate to the archived/legacy Windows Community Toolkit `
 
 ## Decision
 
-Use `WinUI.TableView` as the preferred migration target for the next table-control iteration.
+Use `WinUI.TableView` as the result-grid control.
 
 ## Rationale
 
@@ -15,13 +15,16 @@ Use `WinUI.TableView` as the preferred migration target for the next table-contr
 ## Integration Approach
 
 - Keep `QueryResult` as the table data boundary.
-- Add a `TableViewAdapter` layer before replacing the current lightweight Reactor table.
-- The adapter should map each `QueryResult` row into a dictionary/object shape accepted by `WinUI.TableView`.
+- Host `WinUI.TableView.TableView` through Reactor `XamlHostElement`.
+- Map each `QueryResult` row into a dictionary shape accepted by `WinUI.TableView`.
+- Generate one `TableViewTextColumn` per result column.
 - Do not couple DuckDB query execution to any specific table control.
 
 ## Current Status
 
-The current Reactor table remains in place as a stable fallback. The next implementation step is a small spike that hosts `WinUI.TableView` from Reactor without XAML and validates:
+The previous lightweight Reactor grid has been removed. The active implementation lives in `Controls/ResultTableView.cs`.
+
+The next validation pass should cover:
 
 - dynamic columns from query results,
 - horizontal and vertical virtualization,

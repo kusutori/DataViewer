@@ -49,6 +49,7 @@
         <PackageReference Include="DuckDB.NET.Data.Full" Version="1.5.3" />
         <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.0.1" />
         <PackageReference Include="Microsoft.UI.Reactor" Version="0.1.0-preview.4" />
+        <PackageReference Include="WinUI.TableView" Version="1.4.1" />
     </ItemGroup>
 
     <!--
