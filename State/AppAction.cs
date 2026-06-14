@@ -12,3 +12,4 @@ public sealed record RunQueryRequested : AppAction;
 public sealed record QuerySucceeded(QueryResult Result) : AppAction;
 public sealed record QueryFailed(string Message) : AppAction;
 public sealed record ResetQuery(string SqlText, QueryResult Result) : AppAction;
+public sealed record DismissToast : AppAction;

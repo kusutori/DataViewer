@@ -50,6 +50,10 @@ public static class AppReducer
                 IsBusy = false,
                 ErrorMessage = null,
             },
+            DismissToast => state with
+            {
+                ErrorMessage = null,
+            },
             _ => state,
         };
 }

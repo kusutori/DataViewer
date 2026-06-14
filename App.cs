@@ -93,14 +93,24 @@ class App : Component
 
     private Element RenderWorkspace(AppState state, Action<AppAction> dispatch) =>
         (FlexColumn(
-            state.ErrorMessage is null
-                ? null
-                : InfoBar("操作失败", state.ErrorMessage)
-                    .Severity(InfoBarSeverity.Error),
+            RenderToast(state, dispatch),
             RenderSqlPanel(state, dispatch),
             RenderResultPanel(state)
         ) with { RowGap = 16 })
         .Flex(grow: 1, basis: 0);
+
+    private static Element? RenderToast(AppState state, Action<AppAction> dispatch)
+    {
+        if (state.ErrorMessage is null)
+        {
+            return null;
+        }
+
+        return InfoBar("SQL 执行失败", state.ErrorMessage)
+            .Severity(InfoBarSeverity.Error)
+            .IsClosable()
+            .Closed(() => dispatch(new DismissToast()));
+    }
 
     private Element RenderSqlPanel(AppState state, Action<AppAction> dispatch) =>
         Card(
@@ -112,7 +122,7 @@ class App : Component
                     ).Flex(grow: 1, basis: 0),
                     Button("重置查询", () => ResetQuery(dispatch, state.DataSet))
                         .IsEnabled(!state.IsBusy && state.DataSet is not null),
-                    Button("执行查询", async () => await RunQueryAsync(dispatch, state.SqlText))
+                    Button("执行查询", () => RunQuery(dispatch, state.SqlText))
                         .AccentButton()
                         .IsEnabled(!state.IsBusy && !string.IsNullOrWhiteSpace(state.SqlText))
                 ),
@@ -215,32 +225,32 @@ class App : Component
 
     private static async Task OpenFileAsync(Action<AppAction> dispatch, ReactorWindow? window)
     {
-        if (window is null)
-        {
-            dispatch(new LoadFailed("窗口尚未就绪，无法打开文件选择器。"));
-            return;
-        }
-
-        var picker = new FileOpenPicker
-        {
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-            CommitButtonText = "打开",
-        };
-        picker.FileTypeFilter.Add(".csv");
-        picker.FileTypeFilter.Add(".parquet");
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(window.NativeWindow));
-
-        var file = await picker.PickSingleFileAsync();
-
-        if (file is null)
-        {
-            return;
-        }
-
-        dispatch(new OpenFileRequested());
-
         try
         {
+            if (window is null)
+            {
+                dispatch(new LoadFailed("窗口尚未就绪，无法打开文件选择器。"));
+                return;
+            }
+
+            var picker = new FileOpenPicker
+            {
+                SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+                CommitButtonText = "打开",
+            };
+            picker.FileTypeFilter.Add(".csv");
+            picker.FileTypeFilter.Add(".parquet");
+            InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(window.NativeWindow));
+
+            var file = await picker.PickSingleFileAsync();
+
+            if (file is null)
+            {
+                return;
+            }
+
+            dispatch(new OpenFileRequested());
+
             var dataSet = QueryEngine.LoadDataSet(file.Path);
             var sql = QueryEngine.CreateDefaultSql(dataSet);
             var result = QueryEngine.Query(sql);
@@ -252,13 +262,13 @@ class App : Component
         }
     }
 
-    private static async Task RunQueryAsync(Action<AppAction> dispatch, string sql)
+    private static void RunQuery(Action<AppAction> dispatch, string sql)
     {
         dispatch(new RunQueryRequested());
 
         try
         {
-            var result = await Task.Run(() => QueryEngine.Query(sql));
+            var result = QueryEngine.Query(sql);
             dispatch(new QuerySucceeded(result));
         }
         catch (Exception ex)
