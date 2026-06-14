@@ -42,6 +42,11 @@
     <!-- </snippet:template-shape> -->
 
     <ItemGroup>
+        <Compile Remove="skills\**\*.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="DuckDB.NET.Data.Full" Version="1.5.3" />
         <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.0.1" />
         <PackageReference Include="Microsoft.UI.Reactor" Version="0.1.0-preview.4" />
     </ItemGroup>
