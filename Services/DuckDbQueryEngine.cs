@@ -28,13 +28,15 @@ public sealed class DuckDbQueryEngine : IDisposable
         var alias = $"dataset_{++nextAliasId}";
 
         ExecuteNonQuery(reader.CreateRelationSql(path, alias));
+        var columns = GetColumns(reader.GetSchemaSql(alias));
 
         return new LoadedDataSet(
             Path: path,
             FileName: Path.GetFileName(path),
             Alias: alias,
             Format: Path.GetExtension(path).TrimStart('.').ToUpperInvariant(),
-            PreviewLimit: PreviewLimit);
+            PreviewLimit: PreviewLimit,
+            Columns: columns);
     }
 
     public string CreateDefaultSql(LoadedDataSet dataSet) =>
@@ -70,6 +72,24 @@ public sealed class DuckDbQueryEngine : IDisposable
         using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.ExecuteNonQuery();
+    }
+
+    private IReadOnlyList<string> GetColumns(string schemaSql)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = schemaSql;
+
+        using var reader = command.ExecuteReader();
+        var columns = new List<string>();
+        while (reader.Read())
+        {
+            if (!reader.IsDBNull(0))
+            {
+                columns.Add(Convert.ToString(reader.GetValue(0)) ?? "");
+            }
+        }
+
+        return columns.Where(column => !string.IsNullOrWhiteSpace(column)).ToArray();
     }
 
     public void Dispose() => connection.Dispose();

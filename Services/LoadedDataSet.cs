@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace DataViewer.Services;
 
 public sealed record LoadedDataSet(
@@ -5,4 +7,5 @@ public sealed record LoadedDataSet(
     string FileName,
     string Alias,
     string Format,
-    int PreviewLimit);
+    int PreviewLimit,
+    IReadOnlyList<string> Columns);

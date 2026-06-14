@@ -54,6 +54,19 @@ public static class AppReducer
             {
                 ErrorMessage = null,
             },
+            ThemeChanged changed => state with
+            {
+                ThemeMode = changed.Value,
+            },
+            CompletionItemsChanged changed => state with
+            {
+                CompletionItems = changed.Items,
+            },
+            CompletionAccepted accepted => state with
+            {
+                SqlText = accepted.SqlText,
+                CompletionItems = [],
+            },
             _ => state,
         };
 }

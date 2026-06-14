@@ -35,7 +35,9 @@ class App : Component
             )
             .Padding(16)
             .Flex(grow: 1, basis: 0)
-        ).Backdrop(BackdropKind.Mica);
+        )
+        .RequestedTheme(ToElementTheme(state.ThemeMode))
+        .Backdrop(BackdropKind.Mica);
     }
 
     private static Element RenderSidebar(AppState state, Action<AppAction> dispatch, ReactorWindow? window) =>
@@ -52,9 +54,20 @@ class App : Component
                 RenderCurrentDataSet(state.DataSet),
                 Card(
                     VStack(8,
+                        TextBlock("外观").SemiBold(),
+                        ComboBox(
+                            ["跟随系统", "浅色", "深色"],
+                            ThemeIndex(state.ThemeMode),
+                            index => dispatch(new ThemeChanged(ThemeFromIndex(index))))
+                    )
+                ),
+                Card(
+                    VStack(8,
                         TextBlock("支持格式").SemiBold(),
                         Caption(".csv  使用 read_csv_auto 自动识别"),
+                        Caption(".tsv  使用制表符分隔读取"),
                         Caption(".parquet  使用 read_parquet 读取列式数据"),
+                        Caption(".json / .jsonl / .ndjson  使用 read_json_auto"),
                         Caption("后续格式通过 IDataSetReader 扩展。").Foreground(Theme.SecondaryText)
                     )
                 ),
@@ -86,6 +99,7 @@ class App : Component
                 TextBlock(dataSet.FileName).SemiBold().TextTrimming(TextTrimming.CharacterEllipsis).ToolTip(dataSet.Path),
                 Caption($"格式: {dataSet.Format}"),
                 Caption($"SQL 别名: {dataSet.Alias}"),
+                Caption($"列数: {dataSet.Columns.Count}"),
                 Caption($"预览上限: {dataSet.PreviewLimit} 行").Foreground(Theme.SecondaryText)
             )
         );
@@ -126,13 +140,42 @@ class App : Component
                         .AccentButton()
                         .IsEnabled(!state.IsBusy && !string.IsNullOrWhiteSpace(state.SqlText))
                 ),
-                TextBox(state.SqlText, value => dispatch(new SqlChanged(value)), placeholderText: "SELECT * FROM dataset_1 LIMIT 200;")
+                TextBox(state.SqlText, value =>
+                    {
+                        var nextState = state with { SqlText = value };
+                        dispatch(new SqlChanged(value));
+                        dispatch(new CompletionItemsChanged(SqlCompletionProvider.GetSuggestions(nextState)));
+                    }, placeholderText: "SELECT * FROM dataset_1 LIMIT 200;")
                     .AcceptsReturn()
                     .TextWrapping(TextWrapping.NoWrap)
                     .MinHeight(116)
-                    .AutomationName("SQL 查询编辑器")
+                    .AutomationName("SQL 查询编辑器"),
+                RenderCompletionPanel(state, dispatch)
             ) with { RowGap = 12 }
         );
+
+    private static Element? RenderCompletionPanel(AppState state, Action<AppAction> dispatch)
+    {
+        if (state.CompletionItems.Count == 0)
+        {
+            return null;
+        }
+
+        return Border(
+            FlexRow(
+                state.CompletionItems
+                    .Select(item =>
+                        Button(item, () => dispatch(new CompletionAccepted(SqlCompletionProvider.ApplySuggestion(state.SqlText, item))))
+                            .SubtleButton()
+                            .WithKey(item))
+                    .ToArray()
+            ) with { ColumnGap = 8, Wrap = FlexWrap.Wrap }
+        )
+        .Padding(8)
+        .Background(Theme.SubtleFill)
+        .CornerRadius(8)
+        .AutomationName("SQL 自动补全候选");
+    }
 
     private static Element RenderResultPanel(AppState state) =>
         Card(
@@ -238,8 +281,12 @@ class App : Component
                 SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
                 CommitButtonText = "打开",
             };
-            picker.FileTypeFilter.Add(".csv");
-            picker.FileTypeFilter.Add(".parquet");
+        picker.FileTypeFilter.Add(".csv");
+        picker.FileTypeFilter.Add(".tsv");
+        picker.FileTypeFilter.Add(".parquet");
+        picker.FileTypeFilter.Add(".json");
+        picker.FileTypeFilter.Add(".jsonl");
+        picker.FileTypeFilter.Add(".ndjson");
             InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(window.NativeWindow));
 
             var file = await picker.PickSingleFileAsync();
@@ -297,4 +344,28 @@ class App : Component
             dispatch(new QueryFailed(ex.Message));
         }
     }
+
+    private static int ThemeIndex(ThemeMode mode) =>
+        mode switch
+        {
+            ThemeMode.Light => 1,
+            ThemeMode.Dark => 2,
+            _ => 0,
+        };
+
+    private static ThemeMode ThemeFromIndex(int index) =>
+        index switch
+        {
+            1 => ThemeMode.Light,
+            2 => ThemeMode.Dark,
+            _ => ThemeMode.System,
+        };
+
+    private static ElementTheme ToElementTheme(ThemeMode mode) =>
+        mode switch
+        {
+            ThemeMode.Light => ElementTheme.Light,
+            ThemeMode.Dark => ElementTheme.Dark,
+            _ => ElementTheme.Default,
+        };
 }
