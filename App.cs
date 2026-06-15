@@ -52,7 +52,11 @@ class App : Component
                 .WithNavigation(nav, ToTag, ToRoute)
                 .PaneTitle("DataViewer")
                 .PaneFooter(
-                    Button("设置", () => nav.Navigate(AppRoute.Settings))
+                    Button(
+                        HStack(12,
+                            Icon(FontIcon("\uE713")),
+                            TextBlock("设置")),
+                        () => nav.Navigate(AppRoute.Settings))
                         .SubtleButton()
                         .AutomationName("打开设置"))
                 .PaneDisplayMode(NavigationViewPaneDisplayMode.LeftCompact)
