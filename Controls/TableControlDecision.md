@@ -15,7 +15,8 @@ Use `WinUI.TableView` as the result-grid control.
 ## Integration Approach
 
 - Keep `QueryResult` as the table data boundary.
-- Host `WinUI.TableView.TableView` through Reactor `XamlHostElement`.
+- Register a custom Reactor `ResultTableViewElement` with `Reconciler.RegisterType`.
+- Create the native `WinUI.TableView.TableView` in `mount`, patch rows and columns in `update`, and clear data in `unmount`.
 - Map each `QueryResult` row into a dictionary shape accepted by `WinUI.TableView`.
 - Generate one `TableViewTextColumn` per result column.
 - Do not couple DuckDB query execution to any specific table control.

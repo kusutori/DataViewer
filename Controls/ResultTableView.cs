@@ -3,7 +3,6 @@ using System.Linq;
 using DataViewer.Services;
 using Microsoft.UI.Reactor;
 using Microsoft.UI.Reactor.Core;
-using Microsoft.UI.Reactor.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
@@ -13,37 +12,51 @@ namespace DataViewer.Controls;
 
 public static class ResultTableView
 {
-    public static Element Render(QueryResult? result) =>
-        new XamlHostElement(
-            Factory: () =>
+    public static void Register(Reconciler reconciler)
+    {
+        reconciler.RegisterType<ResultTableViewElement, TableView>(
+            mount: (_, element, _) =>
             {
-                var table = new TableView
-                {
-                    AutoGenerateColumns = false,
-                    CanFilterColumns = true,
-                    CanResizeColumns = true,
-                    CanReorderColumns = true,
-                    CanSortColumns = true,
-                    IsReadOnly = true,
-                    SelectionMode = ListViewSelectionMode.Extended,
-                    ShowExportOptions = true,
-                    GridLinesVisibility = TableViewGridLinesVisibility.All,
-                    HeaderGridLinesVisibility = TableViewGridLinesVisibility.All,
-                    RowMinHeight = 36,
-                    MinColumnWidth = 96,
-                    MaxColumnWidth = 480,
-                };
-
-                ApplyResult(table, result);
+                var table = CreateTableView();
+                ApplyResult(table, element.Result);
                 return table;
             },
-            Updater: element =>
+            update: (_, oldElement, newElement, table, _) =>
             {
-                if (element is TableView table)
+                if (!ReferenceEquals(oldElement.Result, newElement.Result))
                 {
-                    ApplyResult(table, result);
+                    ApplyResult(table, newElement.Result);
                 }
+
+                return null;
+            },
+            unmount: (_, table) =>
+            {
+                table.ItemsSource = null;
+                table.Columns.Clear();
             });
+    }
+
+    public static Element Render(QueryResult? result) =>
+        new ResultTableViewElement(result);
+
+    private static TableView CreateTableView() =>
+        new()
+        {
+            AutoGenerateColumns = false,
+            CanFilterColumns = true,
+            CanResizeColumns = true,
+            CanReorderColumns = true,
+            CanSortColumns = true,
+            IsReadOnly = true,
+            SelectionMode = ListViewSelectionMode.Extended,
+            ShowExportOptions = true,
+            GridLinesVisibility = TableViewGridLinesVisibility.All,
+            HeaderGridLinesVisibility = TableViewGridLinesVisibility.All,
+            RowMinHeight = 36,
+            MinColumnWidth = 96,
+            MaxColumnWidth = 480,
+        };
 
     private static void ApplyResult(TableView table, QueryResult? result)
     {
@@ -92,3 +105,5 @@ public static class ResultTableView
             .ToArray();
     }
 }
+
+public record ResultTableViewElement(QueryResult? Result) : Element;

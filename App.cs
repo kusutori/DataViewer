@@ -18,7 +18,7 @@ using WinUI.TableView;
 using static Microsoft.UI.Reactor.Factories;
 
 ReactorApp.RegisterControlAssembly(typeof(TableView).Assembly);
-ReactorApp.Run<App>("DataViewer", 1180, 760, false, host => XamlInterop.Register(host.Reconciler));
+ReactorApp.Run<App>("DataViewer", 1180, 760, false, host => ResultTableView.Register(host.Reconciler));
 
 class App : Component
 {
