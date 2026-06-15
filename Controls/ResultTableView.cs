@@ -17,18 +17,21 @@ public static class ResultTableView
         reconciler.RegisterType<ResultTableViewElement, TableView>(
             mount: (_, element, _) =>
             {
-                var table = CreateTableView();
-                ApplyResult(table, element.Result);
+                var table = new TableView();
+                ApplyOptions(table, element);
+                ApplyResult(table, element);
                 return table;
             },
             update: (_, oldElement, newElement, table, _) =>
             {
-                if (!ReferenceEquals(oldElement.Result, newElement.Result))
+                ApplyOptions(table, newElement);
+
+                if (oldElement != newElement)
                 {
-                    ApplyResult(table, newElement.Result);
+                    ApplyResult(table, newElement);
                 }
 
-                return null;
+                return table;
             },
             unmount: (_, table) =>
             {
@@ -37,29 +40,29 @@ public static class ResultTableView
             });
     }
 
-    public static Element Render(QueryResult? result) =>
+    public static ResultTableViewElement Render(QueryResult? result) =>
         new ResultTableViewElement(result);
 
-    private static TableView CreateTableView() =>
-        new()
-        {
-            AutoGenerateColumns = false,
-            CanFilterColumns = true,
-            CanResizeColumns = true,
-            CanReorderColumns = true,
-            CanSortColumns = true,
-            IsReadOnly = true,
-            SelectionMode = ListViewSelectionMode.Extended,
-            ShowExportOptions = true,
-            GridLinesVisibility = TableViewGridLinesVisibility.All,
-            HeaderGridLinesVisibility = TableViewGridLinesVisibility.All,
-            RowMinHeight = 36,
-            MinColumnWidth = 96,
-            MaxColumnWidth = 480,
-        };
-
-    private static void ApplyResult(TableView table, QueryResult? result)
+    private static void ApplyOptions(TableView table, ResultTableViewElement element)
     {
+        table.AutoGenerateColumns = false;
+        table.CanFilterColumns = element.CanFilter;
+        table.CanResizeColumns = element.CanResizeColumns;
+        table.CanReorderColumns = element.CanReorderColumns;
+        table.CanSortColumns = element.CanSort;
+        table.IsReadOnly = element.IsReadOnly;
+        table.SelectionMode = element.SelectionMode;
+        table.ShowExportOptions = element.ShowExportOptions;
+        table.GridLinesVisibility = element.GridLinesVisibility;
+        table.HeaderGridLinesVisibility = element.HeaderGridLinesVisibility;
+        table.RowMinHeight = element.RowMinHeight;
+        table.MinColumnWidth = element.MinColumnWidth;
+        table.MaxColumnWidth = element.MaxColumnWidth;
+    }
+
+    private static void ApplyResult(TableView table, ResultTableViewElement element)
+    {
+        var result = element.Result;
         table.Columns.Clear();
 
         if (result is null || result.Columns.Count == 0)
@@ -84,10 +87,10 @@ public static class ResultTableView
                     Path = new PropertyPath($"[{key}]"),
                     Mode = BindingMode.OneWay,
                 },
-                Width = new GridLength(180),
-                CanFilter = true,
-                CanSort = true,
-                IsReadOnly = true,
+                Width = new GridLength(element.ColumnWidth),
+                CanFilter = element.CanFilter,
+                CanSort = element.CanSort,
+                IsReadOnly = element.IsReadOnly,
             });
         }
 
@@ -106,4 +109,19 @@ public static class ResultTableView
     }
 }
 
-public record ResultTableViewElement(QueryResult? Result) : Element;
+public record ResultTableViewElement(QueryResult? Result) : Element
+{
+    public bool CanSort { get; init; } = true;
+    public bool CanFilter { get; init; } = true;
+    public bool CanResizeColumns { get; init; } = true;
+    public bool CanReorderColumns { get; init; } = true;
+    public bool IsReadOnly { get; init; } = true;
+    public bool ShowExportOptions { get; init; } = true;
+    public double RowMinHeight { get; init; } = 36;
+    public double ColumnWidth { get; init; } = 180;
+    public double MinColumnWidth { get; init; } = 96;
+    public double MaxColumnWidth { get; init; } = 480;
+    public ListViewSelectionMode SelectionMode { get; init; } = ListViewSelectionMode.Extended;
+    public TableViewGridLinesVisibility GridLinesVisibility { get; init; } = TableViewGridLinesVisibility.All;
+    public TableViewGridLinesVisibility HeaderGridLinesVisibility { get; init; } = TableViewGridLinesVisibility.All;
+}
