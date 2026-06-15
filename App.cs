@@ -10,6 +10,7 @@ using Microsoft.UI.Reactor;
 using Microsoft.UI.Reactor.Core;
 using Microsoft.UI.Reactor.Hosting;
 using Microsoft.UI.Reactor.Layout;
+using Microsoft.UI.Reactor.Navigation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
@@ -51,14 +52,7 @@ class App : Component
                 )
                 .WithNavigation(nav, ToTag, ToRoute)
                 .PaneTitle("DataViewer")
-                .PaneFooter(
-                    Button(
-                        HStack(12,
-                            Icon(FontIcon("\uE713")),
-                            TextBlock("设置")),
-                        () => nav.Navigate(AppRoute.Settings))
-                        .SubtleButton()
-                        .AutomationName("打开设置"))
+                .Set(navigationView => ConfigureFooterNavigation(navigationView, nav))
                 .PaneDisplayMode(NavigationViewPaneDisplayMode.LeftCompact)
                 with { IsSettingsVisible = false })
             .Flex(grow: 1, basis: 0)
@@ -388,6 +382,29 @@ class App : Component
 
     private static AppRoute ToRoute(string tag) =>
         Enum.Parse<AppRoute>(tag, ignoreCase: true);
+
+    private static void ConfigureFooterNavigation(NavigationView navigationView, NavigationHandle<AppRoute> nav)
+    {
+        const string settingsTag = "settings-footer-item";
+
+        if (navigationView.FooterMenuItems.OfType<NavigationViewItem>().Any(item => Equals(item.Tag, settingsTag)))
+        {
+            return;
+        }
+
+        var settingsItem = new NavigationViewItem
+        {
+            Content = "设置",
+            Tag = settingsTag,
+            Icon = new FontIcon
+            {
+                Glyph = "\uE713",
+            },
+        };
+
+        settingsItem.Tapped += (_, _) => nav.Navigate(AppRoute.Settings);
+        navigationView.FooterMenuItems.Add(settingsItem);
+    }
 
     private static ElementTheme ToElementTheme(ThemeMode mode) =>
         mode switch
