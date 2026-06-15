@@ -10,7 +10,6 @@ using Microsoft.UI.Reactor;
 using Microsoft.UI.Reactor.Core;
 using Microsoft.UI.Reactor.Hosting;
 using Microsoft.UI.Reactor.Layout;
-using Microsoft.UI.Reactor.Navigation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
@@ -52,7 +51,7 @@ class App : Component
                 )
                 .WithNavigation(nav, ToTag, ToRoute)
                 .PaneTitle("DataViewer")
-                .Set(navigationView => ConfigureFooterNavigation(navigationView, nav))
+                .Set(ConfigureFooterNavigation)
                 .PaneDisplayMode(NavigationViewPaneDisplayMode.LeftCompact)
                 with { IsSettingsVisible = false })
             .Flex(grow: 1, basis: 0)
@@ -383,9 +382,9 @@ class App : Component
     private static AppRoute ToRoute(string tag) =>
         Enum.Parse<AppRoute>(tag, ignoreCase: true);
 
-    private static void ConfigureFooterNavigation(NavigationView navigationView, NavigationHandle<AppRoute> nav)
+    private static void ConfigureFooterNavigation(NavigationView navigationView)
     {
-        const string settingsTag = "settings-footer-item";
+        var settingsTag = ToTag(AppRoute.Settings);
 
         if (navigationView.FooterMenuItems.OfType<NavigationViewItem>().Any(item => Equals(item.Tag, settingsTag)))
         {
@@ -402,7 +401,6 @@ class App : Component
             },
         };
 
-        settingsItem.Tapped += (_, _) => nav.Navigate(AppRoute.Settings);
         navigationView.FooterMenuItems.Add(settingsItem);
     }
 
