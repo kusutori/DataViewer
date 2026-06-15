@@ -1,3 +1,5 @@
+using System;
+
 namespace DataViewer.State;
 
 public static class AppReducer
@@ -17,6 +19,7 @@ public static class AppReducer
                 Result = loaded.Result,
                 IsBusy = false,
                 ErrorMessage = null,
+                SqlEditorSyncVersion = state.SqlEditorSyncVersion + 1,
             },
             LoadFailed failed => state with
             {
@@ -49,6 +52,7 @@ public static class AppReducer
                 Result = reset.Result,
                 IsBusy = false,
                 ErrorMessage = null,
+                SqlEditorSyncVersion = state.SqlEditorSyncVersion + 1,
             },
             DismissToast => state with
             {
@@ -58,14 +62,21 @@ public static class AppReducer
             {
                 ThemeMode = changed.Value,
             },
-            CompletionItemsChanged changed => state with
+            EditorThemeChanged changed => state with
             {
-                CompletionItems = changed.Items,
+                EditorSettings = state.EditorSettings with { ThemeMode = changed.Value },
             },
-            CompletionAccepted accepted => state with
+            EditorFontFamilyChanged changed => state with
             {
-                SqlText = accepted.SqlText,
-                CompletionItems = [],
+                EditorSettings = state.EditorSettings with { FontFamily = changed.Value },
+            },
+            EditorFontSizeChanged changed => state with
+            {
+                EditorSettings = state.EditorSettings with { FontSize = Math.Clamp(changed.Value, 11, 22) },
+            },
+            EditorAcceptCompletionOnTabChanged changed => state with
+            {
+                EditorSettings = state.EditorSettings with { AcceptCompletionOnTab = changed.Value },
             },
             _ => state,
         };

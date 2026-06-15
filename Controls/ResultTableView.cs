@@ -24,9 +24,12 @@ public static class ResultTableView
             },
             update: (_, oldElement, newElement, table, _) =>
             {
-                ApplyOptions(table, newElement);
+                if (OptionsChanged(oldElement, newElement))
+                {
+                    ApplyOptions(table, newElement);
+                }
 
-                if (oldElement != newElement)
+                if (!ReferenceEquals(oldElement.Result, newElement.Result) || ColumnOptionsChanged(oldElement, newElement))
                 {
                     ApplyResult(table, newElement);
                 }
@@ -59,6 +62,26 @@ public static class ResultTableView
         table.MinColumnWidth = element.MinColumnWidth;
         table.MaxColumnWidth = element.MaxColumnWidth;
     }
+
+    private static bool OptionsChanged(ResultTableViewElement oldElement, ResultTableViewElement newElement) =>
+        oldElement.CanFilter != newElement.CanFilter ||
+        oldElement.CanResizeColumns != newElement.CanResizeColumns ||
+        oldElement.CanReorderColumns != newElement.CanReorderColumns ||
+        oldElement.CanSort != newElement.CanSort ||
+        oldElement.IsReadOnly != newElement.IsReadOnly ||
+        oldElement.SelectionMode != newElement.SelectionMode ||
+        oldElement.ShowExportOptions != newElement.ShowExportOptions ||
+        oldElement.GridLinesVisibility != newElement.GridLinesVisibility ||
+        oldElement.HeaderGridLinesVisibility != newElement.HeaderGridLinesVisibility ||
+        oldElement.RowMinHeight != newElement.RowMinHeight ||
+        oldElement.MinColumnWidth != newElement.MinColumnWidth ||
+        oldElement.MaxColumnWidth != newElement.MaxColumnWidth;
+
+    private static bool ColumnOptionsChanged(ResultTableViewElement oldElement, ResultTableViewElement newElement) =>
+        oldElement.ColumnWidth != newElement.ColumnWidth ||
+        oldElement.CanFilter != newElement.CanFilter ||
+        oldElement.CanSort != newElement.CanSort ||
+        oldElement.IsReadOnly != newElement.IsReadOnly;
 
     private static void ApplyResult(TableView table, ResultTableViewElement element)
     {

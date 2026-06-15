@@ -18,33 +18,62 @@ using WinUI.TableView;
 using static Microsoft.UI.Reactor.Factories;
 
 ReactorApp.RegisterControlAssembly(typeof(TableView).Assembly);
-ReactorApp.Run<App>("DataViewer", 1180, 760, false, host => ResultTableView.Register(host.Reconciler));
+ReactorApp.Run<App>("DataViewer", 1180, 760, false, host =>
+{
+    ResultTableView.Register(host.Reconciler);
+    SqlCodeEditor.Register(host.Reconciler);
+});
 
 class App : Component
 {
     private static readonly DuckDbQueryEngine QueryEngine = new();
+    private static string CurrentEditorSql = "";
+    private static readonly string[] EditorFonts = ["Cascadia Code", "Consolas", "JetBrains Mono", "Courier New"];
 
     public override Element Render()
     {
         var (state, dispatch) = UseReducer<AppState, AppAction>(AppReducer.Reduce, AppState.Initial);
         var window = UseWindow();
+        var nav = UseNavigation(AppRoute.Query);
 
         return FlexColumn(
             TitleBar("DataViewer") with { Subtitle = "本地数据读取与 SQL 查询原型" },
-            Border(
-                FlexRow(
-                    RenderSidebar(state, dispatch, window),
-                    RenderWorkspace(state, dispatch)
-                ) with { ColumnGap = 16 }
-            )
-            .Padding(16)
+            (NavigationView(
+                    [
+                        NavItem("数据查询", icon: "\uE8A5", tag: ToTag(AppRoute.Query)),
+                    ],
+                    NavigationHost(nav, route => route switch
+                    {
+                        AppRoute.Query => RenderQueryPage(state, dispatch, window),
+                        AppRoute.Settings => RenderSettingsPage(state, dispatch),
+                        _ => TextBlock("页面不存在").Padding(24),
+                    })
+                )
+                .WithNavigation(nav, ToTag, ToRoute)
+                .PaneTitle("DataViewer")
+                .PaneFooter(
+                    Button("设置", () => nav.Navigate(AppRoute.Settings))
+                        .SubtleButton()
+                        .AutomationName("打开设置"))
+                .PaneDisplayMode(NavigationViewPaneDisplayMode.LeftCompact)
+                with { IsSettingsVisible = false })
             .Flex(grow: 1, basis: 0)
         )
         .RequestedTheme(ToElementTheme(state.ThemeMode))
         .Backdrop(BackdropKind.Mica);
     }
 
-    private static Element RenderSidebar(AppState state, Action<AppAction> dispatch, ReactorWindow? window) =>
+    private static Element RenderQueryPage(AppState state, Action<AppAction> dispatch, ReactorWindow? window) =>
+        Border(
+            FlexRow(
+                RenderDataPanel(state, dispatch, window),
+                RenderWorkspace(state, dispatch)
+            ) with { ColumnGap = 16 }
+        )
+        .Padding(16)
+        .Flex(grow: 1, basis: 0);
+
+    private static Element RenderDataPanel(AppState state, Action<AppAction> dispatch, ReactorWindow? window) =>
         Border(
             FlexColumn(
                 VStack(4,
@@ -56,15 +85,6 @@ class App : Component
                     .IsEnabled(!state.IsBusy)
                     .AutomationName("打开数据集文件"),
                 RenderCurrentDataSet(state.DataSet),
-                Card(
-                    VStack(8,
-                        TextBlock("外观").SemiBold(),
-                        ComboBox(
-                            ["跟随系统", "浅色", "深色"],
-                            ThemeIndex(state.ThemeMode),
-                            index => dispatch(new ThemeChanged(ThemeFromIndex(index))))
-                    )
-                ),
                 Card(
                     VStack(8,
                         TextBlock("支持格式").SemiBold(),
@@ -109,7 +129,7 @@ class App : Component
         );
     }
 
-    private Element RenderWorkspace(AppState state, Action<AppAction> dispatch) =>
+    private static Element RenderWorkspace(AppState state, Action<AppAction> dispatch) =>
         (FlexColumn(
             RenderToast(state, dispatch),
             RenderSqlPanel(state, dispatch),
@@ -130,7 +150,7 @@ class App : Component
             .Closed(() => dispatch(new DismissToast()));
     }
 
-    private Element RenderSqlPanel(AppState state, Action<AppAction> dispatch) =>
+    private static Element RenderSqlPanel(AppState state, Action<AppAction> dispatch) =>
         Card(
             FlexColumn(
                 HStack(8,
@@ -140,46 +160,30 @@ class App : Component
                     ).Flex(grow: 1, basis: 0),
                     Button("重置查询", () => ResetQuery(dispatch, state.DataSet))
                         .IsEnabled(!state.IsBusy && state.DataSet is not null),
-                    Button("执行查询", () => RunQuery(dispatch, state.SqlText))
+                    Button("执行查询", () => RunQuery(dispatch, CurrentEditorSql))
                         .AccentButton()
                         .IsEnabled(!state.IsBusy && !string.IsNullOrWhiteSpace(state.SqlText))
                 ),
-                TextBox(state.SqlText, value =>
+                SqlCodeEditor.Render(
+                    CurrentEditorSql,
+                    state.DataSet,
+                    state.ThemeMode,
+                    state.EditorSettings,
+                    state.SqlEditorSyncVersion,
+                    value =>
                     {
-                        var nextState = state with { SqlText = value };
-                        dispatch(new SqlChanged(value));
-                        dispatch(new CompletionItemsChanged(SqlCompletionProvider.GetSuggestions(nextState)));
-                    }, placeholderText: "SELECT * FROM dataset_1 LIMIT 200;")
-                    .AcceptsReturn()
-                    .TextWrapping(TextWrapping.NoWrap)
-                    .MinHeight(116)
+                        CurrentEditorSql = value;
+                    },
+                    value =>
+                    {
+                        CurrentEditorSql = value;
+                        RunQuery(dispatch, value);
+                    })
+                    .MinHeight(132)
                     .AutomationName("SQL 查询编辑器"),
-                RenderCompletionPanel(state, dispatch)
+                Caption("支持 SQL 高亮、关键字/表名/列名补全，按 Ctrl+Enter 执行。").Foreground(Theme.SecondaryText)
             ) with { RowGap = 12 }
         );
-
-    private static Element? RenderCompletionPanel(AppState state, Action<AppAction> dispatch)
-    {
-        if (state.CompletionItems.Count == 0)
-        {
-            return null;
-        }
-
-        return Border(
-            FlexRow(
-                state.CompletionItems
-                    .Select(item =>
-                        Button(item, () => dispatch(new CompletionAccepted(SqlCompletionProvider.ApplySuggestion(state.SqlText, item))))
-                            .SubtleButton()
-                            .WithKey(item))
-                    .ToArray()
-            ) with { ColumnGap = 8, Wrap = FlexWrap.Wrap }
-        )
-        .Padding(8)
-        .Background(Theme.SubtleFill)
-        .CornerRadius(8)
-        .AutomationName("SQL 自动补全候选");
-    }
 
     private static Element RenderResultPanel(AppState state) =>
         Card(
@@ -197,6 +201,55 @@ class App : Component
                     .Flex(grow: 1, basis: 0)
             ) with { RowGap = 12 }
         )
+        .Flex(grow: 1, basis: 0);
+
+    private static Element RenderSettingsPage(AppState state, Action<AppAction> dispatch) =>
+        Border(
+            FlexColumn(
+                VStack(4,
+                    Heading("设置"),
+                    Caption("调整应用外观和 SQL 编辑器行为。").Foreground(Theme.SecondaryText)
+                ),
+                Card(
+                    VStack(12,
+                        TextBlock("外观").SemiBold(),
+                        ComboBox(
+                            ["跟随系统", "浅色", "深色"],
+                            ThemeIndex(state.ThemeMode),
+                            index => dispatch(new ThemeChanged(ThemeFromIndex(index))))
+                            .Header("应用主题")
+                    )
+                ),
+                Card(
+                    VStack(12,
+                        TextBlock("SQL 编辑器").SemiBold(),
+                        ComboBox(
+                            ["跟随应用", "浅色", "深色"],
+                            EditorThemeIndex(state.EditorSettings.ThemeMode),
+                            index => dispatch(new EditorThemeChanged(EditorThemeFromIndex(index))))
+                            .Header("编辑器配色"),
+                        ComboBox(
+                            EditorFonts,
+                            EditorFontIndex(state.EditorSettings.FontFamily),
+                            index => dispatch(new EditorFontFamilyChanged(EditorFonts[index])))
+                            .Header("字体"),
+                        NumberBox(
+                            state.EditorSettings.FontSize,
+                            value => dispatch(new EditorFontSizeChanged(value)),
+                            header: "字号")
+                            .Range(11, 22)
+                            .SpinButtons(NumberBoxSpinButtonPlacementMode.Inline),
+                        ToggleSwitch(
+                            state.EditorSettings.AcceptCompletionOnTab,
+                            value => dispatch(new EditorAcceptCompletionOnTabChanged(value)),
+                            onContent: "Tab 接受补全",
+                            offContent: "Tab 保持默认焦点行为",
+                            header: "补全行为")
+                    )
+                )
+            ) with { RowGap = 16 }
+        )
+        .Padding(24)
         .Flex(grow: 1, basis: 0);
 
     private static async Task OpenFileAsync(Action<AppAction> dispatch, ReactorWindow? window)
@@ -234,6 +287,7 @@ class App : Component
             var dataSet = QueryEngine.LoadDataSet(file.Path);
             var sql = QueryEngine.CreateDefaultSql(dataSet);
             var result = QueryEngine.Query(sql);
+            CurrentEditorSql = sql;
             dispatch(new FileLoaded(dataSet, sql, result));
         }
         catch (Exception ex)
@@ -244,6 +298,14 @@ class App : Component
 
     private static void RunQuery(Action<AppAction> dispatch, string sql)
     {
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            dispatch(new QueryFailed("请输入 SQL 后再执行。"));
+            return;
+        }
+
+        CurrentEditorSql = sql;
+        dispatch(new SqlChanged(sql));
         dispatch(new RunQueryRequested());
 
         try
@@ -270,6 +332,7 @@ class App : Component
         {
             var sql = QueryEngine.CreateDefaultSql(dataSet);
             var result = QueryEngine.Query(sql);
+            CurrentEditorSql = sql;
             dispatch(new ResetQuery(sql, result));
         }
         catch (Exception ex)
@@ -294,6 +357,34 @@ class App : Component
             _ => ThemeMode.System,
         };
 
+    private static int EditorThemeIndex(CodeEditorThemeMode mode) =>
+        mode switch
+        {
+            CodeEditorThemeMode.Light => 1,
+            CodeEditorThemeMode.Dark => 2,
+            _ => 0,
+        };
+
+    private static CodeEditorThemeMode EditorThemeFromIndex(int index) =>
+        index switch
+        {
+            1 => CodeEditorThemeMode.Light,
+            2 => CodeEditorThemeMode.Dark,
+            _ => CodeEditorThemeMode.FollowApp,
+        };
+
+    private static int EditorFontIndex(string fontFamily)
+    {
+        var index = Array.IndexOf(EditorFonts, fontFamily);
+        return index < 0 ? 0 : index;
+    }
+
+    private static string ToTag(AppRoute route) =>
+        route.ToString().ToLowerInvariant();
+
+    private static AppRoute ToRoute(string tag) =>
+        Enum.Parse<AppRoute>(tag, ignoreCase: true);
+
     private static ElementTheme ToElementTheme(ThemeMode mode) =>
         mode switch
         {
@@ -301,4 +392,10 @@ class App : Component
             ThemeMode.Dark => ElementTheme.Dark,
             _ => ElementTheme.Default,
         };
+}
+
+enum AppRoute
+{
+    Query,
+    Settings,
 }

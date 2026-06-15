@@ -1,5 +1,4 @@
 using DataViewer.Services;
-using System.Collections.Generic;
 
 namespace DataViewer.State;
 
@@ -10,7 +9,8 @@ public sealed record AppState(
     bool IsBusy,
     string? ErrorMessage,
     ThemeMode ThemeMode,
-    IReadOnlyList<string> CompletionItems)
+    CodeEditorSettings EditorSettings,
+    int SqlEditorSyncVersion)
 {
     public static AppState Initial { get; } = new(
         DataSet: null,
@@ -19,12 +19,33 @@ public sealed record AppState(
         IsBusy: false,
         ErrorMessage: null,
         ThemeMode: ThemeMode.System,
-        CompletionItems: []);
+        EditorSettings: CodeEditorSettings.Default,
+        SqlEditorSyncVersion: 0);
 }
 
 public enum ThemeMode
 {
     System,
+    Light,
+    Dark,
+}
+
+public sealed record CodeEditorSettings(
+    CodeEditorThemeMode ThemeMode,
+    string FontFamily,
+    double FontSize,
+    bool AcceptCompletionOnTab)
+{
+    public static CodeEditorSettings Default { get; } = new(
+        ThemeMode: CodeEditorThemeMode.FollowApp,
+        FontFamily: "Cascadia Code",
+        FontSize: 13,
+        AcceptCompletionOnTab: true);
+}
+
+public enum CodeEditorThemeMode
+{
+    FollowApp,
     Light,
     Dark,
 }

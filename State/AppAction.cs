@@ -1,5 +1,4 @@
 using DataViewer.Services;
-using System.Collections.Generic;
 
 namespace DataViewer.State;
 
@@ -15,5 +14,7 @@ public sealed record QueryFailed(string Message) : AppAction;
 public sealed record ResetQuery(string SqlText, QueryResult Result) : AppAction;
 public sealed record DismissToast : AppAction;
 public sealed record ThemeChanged(ThemeMode Value) : AppAction;
-public sealed record CompletionItemsChanged(IReadOnlyList<string> Items) : AppAction;
-public sealed record CompletionAccepted(string SqlText) : AppAction;
+public sealed record EditorThemeChanged(CodeEditorThemeMode Value) : AppAction;
+public sealed record EditorFontFamilyChanged(string Value) : AppAction;
+public sealed record EditorFontSizeChanged(double Value) : AppAction;
+public sealed record EditorAcceptCompletionOnTabChanged(bool Value) : AppAction;
